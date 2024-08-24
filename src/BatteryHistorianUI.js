@@ -16,7 +16,12 @@ import {
 } from 'chart.js';
 import Button from '@mui/material/Button';
 import 'chartjs-adapter-date-fns';
-import { extractIntervals, getAverageTime, parseWakeLockLog } from './utils';
+import {
+  extractIntervals,
+  getAverageTime,
+  parseWakeLockLog,
+  updateAlarmCount,
+} from './utils';
 
 ChartJS.register(
   CategoryScale,
@@ -51,11 +56,25 @@ const data = [
     count2: 10,
   },
   {
+    start: '08-24 00:15:00',
+    end: '08-24 00:30:00',
+    state: 2,
+    count1: 15,
+    count2: 10,
+  },
+  {
     start: '08-24 00:30:00',
     end: '08-24 00:45:00',
     state: 0,
     count1: 8,
     count2: 14,
+  },
+  {
+    start: '08-24 00:45:00',
+    end: '08-24 00:50:00',
+    state: 2,
+    count1: 15,
+    count2: 10,
   },
   {
     start: '08-24 00:50:00',
@@ -65,6 +84,13 @@ const data = [
     count2: 19,
   },
   {
+    start: '08-24 01:15:00',
+    end: '08-24 01:20:00',
+    state: 2,
+    count1: 15,
+    count2: 10,
+  },
+  {
     start: '08-24 01:20:00',
     end: '08-24 01:45:00',
     state: 1,
@@ -72,11 +98,25 @@ const data = [
     count2: 21,
   },
   {
+    start: '08-24 01:45:00',
+    end: '08-24 01:50:00',
+    state: 2,
+    count1: 15,
+    count2: 10,
+  },
+  {
     start: '08-24 01:50:00',
     end: '08-24 02:30:00',
     state: 1,
     count1: 50,
     count2: 30,
+  },
+  {
+    start: '08-24 02:30:00',
+    end: '08-24 02:50:00',
+    state: 2,
+    count1: 15,
+    count2: 10,
   },
   {
     start: '08-24 02:50:00',
@@ -93,7 +133,8 @@ const transformData = (inputData) => {
   let minTime = '23:59:59';
   let maxTime = '00:00:00';
 
-  const lineDatasets = inputData.map((segment) => {
+  const datasetForLine = inputData.filter((data) => data.state != 2);
+  const lineDatasets = datasetForLine.map((segment) => {
     // Update min and max time based on the data
     if (segment.start < minTime) minTime = segment.start;
     if (segment.end > maxTime) maxTime = segment.end;
@@ -113,14 +154,14 @@ const transformData = (inputData) => {
   });
 
   const barDataset = {
-    label: 'action Count',
+    label: 'alarm_count',
     yAxisID: 'y-count',
     type: 'bar',
     backgroundColor: 'red',
     barThickness: 10,
     data: inputData.map((segment) => ({
       x: getAverageTime(segment.start, segment.end),
-      y: segment.count1,
+      y: segment.alarm_count,
     })),
   };
 
@@ -156,7 +197,10 @@ const BatteryHistorianUI = () => {
       reader.onload = (e) => {
         setFileContent(parseWakeLockLog(e.target.result));
         setCreatedIntervals(
-          extractIntervals(parseWakeLockLog(e.target.result))
+          updateAlarmCount(
+            extractIntervals(parseWakeLockLog(e.target.result)),
+            e.target.result
+          )
         );
       };
       reader.readAsText(file);
@@ -173,6 +217,7 @@ const BatteryHistorianUI = () => {
   };
 
   const { datasets, minTime, maxTime } = transformData(createdIntervals);
+  // const { datasets, minTime, maxTime } = transformData(data);
 
   const options = {
     interaction: {
@@ -283,7 +328,7 @@ const BatteryHistorianUI = () => {
             marginRight: '5px',
           }}
         ></div>
-        <span>count1</span>
+        <span>alarm_count</span>
         <div
           style={{
             backgroundColor: 'green',

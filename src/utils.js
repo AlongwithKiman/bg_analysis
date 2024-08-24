@@ -76,6 +76,7 @@ export function parseWakeLockLog(inputString) {
 export function extractIntervals(lines) {
   const intervals = [];
   let startTime = null;
+  let endTime = null;
 
   for (const line of lines) {
     // Extract the timestamp and message from the line
@@ -85,12 +86,22 @@ export function extractIntervals(lines) {
     // Check if the message contains '[DEEP] QUICK_DOZE_DELAY to IDLE'
     if (message.includes('[DEEP] QUICK_DOZE_DELAY to IDLE')) {
       startTime = timestamp;
+      if (endTime) {
+        intervals.push({
+          start: endTime,
+          end: startTime,
+          state: 2,
+          count1: 10,
+          count2: 15,
+        });
+      }
     }
     // Check if the message contains '[DEEP] IDLE to ACTIVE' and startTime is set
     else if (message.includes('[DEEP] IDLE to ACTIVE') && startTime) {
+      endTime = timestamp;
       intervals.push({
         start: startTime,
-        end: timestamp,
+        end: endTime,
         state: 0,
         count1: 10,
         count2: 15,
@@ -100,4 +111,57 @@ export function extractIntervals(lines) {
   }
 
   return intervals;
+}
+
+export function updateAlarmCount(intervals, dataString) {
+  // Interval 객체에 alarm_count 속성 추가
+  intervals.forEach((interval) => (interval.alarm_count = 0));
+  const intervalDates = intervals.map((interval) => ({
+    start: parseDateTime(interval.start),
+    end: parseDateTime(interval.end),
+  }));
+
+  const lines = dataString.split('\n');
+
+  // Initialize variables
+  let startIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Wakeup Alarm history(screen off):')) {
+      startIndex = i + 1;
+    }
+  }
+  if (startIndex == -1) return intervals;
+
+  const logLineRegex = /^ *rtc=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.*$/;
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const match = lines[i].match(logLineRegex);
+    if (match) {
+      const date = parseDateTime(lines[i].trim().substring(9, 23)); // yyyy-mm-dd HH:MM:SS 형식으로 변환
+
+      for (let j = 0; j < intervalDates.length; j++) {
+        if (date >= intervalDates[j].start && date < intervalDates[j].end) {
+          intervals[j].alarm_count += 1;
+          console.log(intervals[j].alarm_count);
+          break;
+        }
+      }
+    } else {
+      break;
+    }
+  }
+  console.log(intervals);
+
+  return intervals;
+}
+
+// (mm-dd HH:MM:SS) 형식의 문자열을 Date 객체로 변환
+function parseDateTime(dateTimeStr) {
+  const [date, time] = dateTimeStr.split(' ');
+  const [month, day] = date.split('-').map(Number);
+  const [hour, minute, second] = time.split(':').map(Number);
+
+  // 현재 연도를 기준으로 Date 객체 생성
+  const now = new Date();
+  return new Date(now.getFullYear(), month - 1, day, hour, minute, second);
 }
