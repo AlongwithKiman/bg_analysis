@@ -142,7 +142,6 @@ export function updateAlarmCount(intervals, dataString) {
       for (let j = 0; j < intervalDates.length; j++) {
         if (date >= intervalDates[j].start && date < intervalDates[j].end) {
           intervals[j].alarm_count += 1;
-          console.log(intervals[j].alarm_count);
           break;
         }
       }
@@ -150,8 +149,6 @@ export function updateAlarmCount(intervals, dataString) {
       break;
     }
   }
-  console.log(intervals);
-
   return intervals;
 }
 
@@ -164,4 +161,92 @@ function parseDateTime(dateTimeStr) {
   // 현재 연도를 기준으로 Date 객체 생성
   const now = new Date();
   return new Date(now.getFullYear(), month - 1, day, hour, minute, second);
+}
+
+// Job Count Function
+export function updateJobCount(intervals, dataString, baseDate) {
+  // Interval 객체에 alarm_count 속성 추가
+  console.log('basedate:', baseDate);
+  intervals.forEach((interval) => (interval.job_count = 0));
+  const intervalDates = intervals.map((interval) => ({
+    start: parseDateTime(interval.start),
+    end: parseDateTime(interval.end),
+  }));
+
+  const lines = dataString.split('\n');
+  const scheduledJobTimes = [];
+
+  // Initialize variables
+  let startIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('DUMP OF SERVICE batterystats:')) {
+      startIndex = i + 1;
+    }
+  }
+  if (startIndex == -1) return intervals;
+  for (let i = startIndex; i < lines.length; i++) {
+    if (lines[i].trim() === '') break;
+
+    if (lines[i].includes('+job=')) {
+      const date = lines[i].trim().split(' ')[0].substring(1);
+      console.log('stringtodate basedate:', baseDate);
+      scheduledJobTimes.push(stringToDate(date, baseDate)); // TODO
+    }
+  }
+
+  for (let i = 0; i < scheduledJobTimes.length; i++) {
+    const date = scheduledJobTimes[i];
+    for (let j = 0; j < intervalDates.length; j++) {
+      if (date >= intervalDates[j].start && date < intervalDates[j].end) {
+        intervals[j].job_count += 1;
+        console.log(intervals[j].job_count);
+        break;
+      }
+    }
+  }
+  console.log(intervals);
+
+  return intervals;
+}
+
+export function getLogStartDate(inputString) {
+  // 정규 표현식을 사용하여 날짜와 시간을 추출합니다.
+  const regex =
+    /Last battery usage start=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d{3}/;
+  const match = inputString.match(regex);
+
+  if (match && match[1]) {
+    // 추출된 날짜 문자열을 Date 객체로 변환합니다.
+    const date = new Date(match[1]);
+    date.setHours(date.getHours() + 9); // fix UTC+9 issue
+    console.log('return date:', date);
+    return date;
+  } else {
+    // 일치하는 부분이 없으면 null을 반환합니다.
+    return null;
+  }
+}
+
+function stringToDate(timeStr, baseDate) {
+  // console.log('Start:', baseDate);
+  const timePattern = /^(\d+h)?(\d+m)?(\d+s)?(\d+ms)?/;
+  const match = timeStr.match(timePattern);
+
+  if (!match) {
+    throw new Error('Invalid time string format');
+  }
+
+  let [_, hours, minutes, seconds, milliseconds] = match;
+  hours = hours ? parseInt(hours) : 0;
+  minutes = minutes ? parseInt(minutes) : 0;
+  seconds = seconds ? parseInt(seconds) : 0;
+  milliseconds = milliseconds ? parseInt(milliseconds) : 0;
+
+  const date = new Date(baseDate);
+  date.setHours(baseDate.getHours() + hours);
+  date.setMinutes(baseDate.getMinutes() + minutes);
+  date.setSeconds(baseDate.getSeconds() + seconds);
+
+  // console.log(baseDate);
+  return date;
 }

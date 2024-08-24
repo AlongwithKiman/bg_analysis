@@ -19,8 +19,10 @@ import 'chartjs-adapter-date-fns';
 import {
   extractIntervals,
   getAverageTime,
+  getLogStartDate,
   parseWakeLockLog,
   updateAlarmCount,
+  updateJobCount,
 } from './utils';
 
 ChartJS.register(
@@ -166,7 +168,7 @@ const transformData = (inputData) => {
   };
 
   const barDataset2 = {
-    label: 'action Count2',
+    label: 'job_count',
     yAxisID: 'y-count2',
     type: 'bar',
     backgroundColor: 'green',
@@ -174,7 +176,7 @@ const transformData = (inputData) => {
 
     data: inputData.map((segment) => ({
       x: getAverageTime(segment.start, segment.end),
-      y: segment.count2,
+      y: segment.job_count,
     })),
   };
 
@@ -186,7 +188,6 @@ const transformData = (inputData) => {
 };
 
 const BatteryHistorianUI = () => {
-  const [fileContent, setFileContent] = useState([]);
   const [createdIntervals, setCreatedIntervals] = useState([]);
   const fileInputRef = useRef(null);
 
@@ -195,16 +196,19 @@ const BatteryHistorianUI = () => {
     if (file && file.type === 'text/plain') {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFileContent(parseWakeLockLog(e.target.result));
-        setCreatedIntervals(
-          updateAlarmCount(
-            extractIntervals(parseWakeLockLog(e.target.result)),
-            e.target.result
-          )
+        const fileContent = e.target.result;
+        const logStartDate = getLogStartDate(fileContent);
+        const intervals = extractIntervals(parseWakeLockLog(fileContent));
+        const intervalsWithAlarm = updateAlarmCount(intervals, fileContent);
+
+        const intervalsWithAlarmAndJob = updateJobCount(
+          intervalsWithAlarm,
+          fileContent,
+          logStartDate
         );
+        setCreatedIntervals(intervalsWithAlarmAndJob);
       };
       reader.readAsText(file);
-      console.log(fileContent);
     } else {
       alert('Please upload a .txt file');
     }
@@ -218,6 +222,11 @@ const BatteryHistorianUI = () => {
 
   const { datasets, minTime, maxTime } = transformData(createdIntervals);
   // const { datasets, minTime, maxTime } = transformData(data);
+
+  const max_cnt =
+    createdIntervals.length > 0
+      ? Math.max(...createdIntervals.map((elem) => elem.alarm_count))
+      : 50;
 
   const options = {
     interaction: {
@@ -254,13 +263,13 @@ const BatteryHistorianUI = () => {
         id: 'y-count',
         display: true,
         min: 0,
-        max: 100,
+        max: max_cnt * 2,
       },
       'y-count2': {
         id: 'y-count2',
         display: false,
         min: 0,
-        max: 100,
+        max: max_cnt * 2,
       },
       'y-doze': {
         id: 'y-doze',
@@ -338,7 +347,7 @@ const BatteryHistorianUI = () => {
             marginLeft: '15px',
           }}
         ></div>
-        <span>count2</span>
+        <span>job_count</span>
       </div>
       <Line data={{ datasets }} options={options} />
     </div>
