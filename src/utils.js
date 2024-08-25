@@ -75,38 +75,64 @@ export function parseWakeLockLog(inputString) {
 
 export function extractIntervals(lines) {
   const intervals = [];
-  let startTime = null;
+  let deepStartTime = null;
   let endTime = null;
+
+  let lightStartTime = null;
+  // let lightEndTime = null;
 
   for (const line of lines) {
     // Extract the timestamp and message from the line
     const timestamp = line.substring(0, 14); // Extract 'MM-DD HH:MM:SS'
     const message = line.substring(15); // Rest of the line after the timestamp
 
+    console.log(timestamp, message);
     // Check if the message contains '[DEEP] QUICK_DOZE_DELAY to IDLE'
-    if (message.includes('[DEEP] QUICK_DOZE_DELAY to IDLE')) {
-      startTime = timestamp;
+    if (
+      message.includes('[DEEP] QUICK_DOZE_DELAY to IDLE') ||
+      message.includes('[DEEP] IDLE_MAINTENANCE to IDLE')
+    ) {
+      deepStartTime = timestamp;
       if (endTime) {
         intervals.push({
           start: endTime,
-          end: startTime,
+          end: deepStartTime,
           state: 2,
-          count1: 10,
-          count2: 15,
         });
+        endTime = null;
       }
     }
     // Check if the message contains '[DEEP] IDLE to ACTIVE' and startTime is set
-    else if (message.includes('[DEEP] IDLE to ACTIVE') && startTime) {
+    else if (
+      (message.includes('[DEEP] IDLE to ACTIVE') ||
+        message.includes('[DEEP] IDLE to IDLE_MAINTENANCE')) &&
+      deepStartTime
+    ) {
       endTime = timestamp;
       intervals.push({
-        start: startTime,
+        start: deepStartTime,
         end: endTime,
         state: 0,
-        count1: 10,
-        count2: 15,
       });
-      startTime = null; // Reset startTime after creating an interval
+      deepStartTime = null; // Reset startTime after creating an interval
+    } else if (message.includes('[LIGHT] INACTIVE to IDLE')) {
+      lightStartTime = timestamp;
+      if (endTime) {
+        intervals.push({
+          start: endTime,
+          end: lightStartTime,
+          state: 2,
+        });
+        endTime = null;
+      }
+    } else if (message.includes('[LIGHT] IDLE to') && lightStartTime) {
+      endTime = timestamp;
+      intervals.push({
+        start: lightStartTime,
+        end: endTime,
+        state: 1,
+      });
+      lightStartTime = null; // Reset startTime after creating an interval
     }
   }
 
@@ -165,8 +191,8 @@ function parseDateTime(dateTimeStr) {
 
 // Job Count Function
 export function updateJobCount(intervals, dataString, baseDate) {
+  console.log(intervals);
   // Interval 객체에 alarm_count 속성 추가
-  console.log('basedate:', baseDate);
   intervals.forEach((interval) => (interval.job_count = 0));
   const intervalDates = intervals.map((interval) => ({
     start: parseDateTime(interval.start),
@@ -188,8 +214,10 @@ export function updateJobCount(intervals, dataString, baseDate) {
     if (lines[i].trim() === '') break;
 
     if (lines[i].includes('+job=')) {
+      // console.log(lines[i]);
       const date = lines[i].trim().split(' ')[0].substring(1);
-      console.log('stringtodate basedate:', baseDate);
+      // console.log('date:', date, 'baseDate:', baseDate);
+      // console.log('stringtodate result:', stringToDate(date, baseDate));
       scheduledJobTimes.push(stringToDate(date, baseDate)); // TODO
     }
   }
@@ -229,24 +257,30 @@ export function getLogStartDate(inputString) {
 
 function stringToDate(timeStr, baseDate) {
   // console.log('Start:', baseDate);
-  const timePattern = /^(\d+h)?(\d+m)?(\d+s)?(\d+ms)?/;
+  const timePattern = /^(\d+d)?(\d+h)?(\d+m)?(\d+s)?(\d+ms)?/;
   const match = timeStr.match(timePattern);
 
   if (!match) {
     throw new Error('Invalid time string format');
   }
 
-  let [_, hours, minutes, seconds, milliseconds] = match;
+  let [_, days, hours, minutes, seconds, milliseconds] = match;
+  days = days ? parseInt(days) : 0;
   hours = hours ? parseInt(hours) : 0;
   minutes = minutes ? parseInt(minutes) : 0;
   seconds = seconds ? parseInt(seconds) : 0;
   milliseconds = milliseconds ? parseInt(milliseconds) : 0;
 
   const date = new Date(baseDate);
+  date.setDate(baseDate.getDate() + days);
   date.setHours(baseDate.getHours() + hours);
   date.setMinutes(baseDate.getMinutes() + minutes);
   date.setSeconds(baseDate.getSeconds() + seconds);
 
-  // console.log(baseDate);
   return date;
+}
+
+export function roundUpToNearestTen(num) {
+  const factor = Math.pow(10, Math.floor(Math.log10(num)));
+  return Math.ceil(num / factor) * factor;
 }

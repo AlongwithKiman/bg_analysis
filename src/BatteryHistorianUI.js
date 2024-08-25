@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Line } from 'react-chartjs-2';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,6 +22,7 @@ import {
   getAverageTime,
   getLogStartDate,
   parseWakeLockLog,
+  roundUpToNearestTen,
   updateAlarmCount,
   updateJobCount,
 } from './utils';
@@ -36,18 +38,9 @@ ChartJS.register(
   Filler,
   Legend,
   TimeScale,
-  TimeSeriesScale
+  TimeSeriesScale,
+  zoomPlugin
 );
-
-// const data = [
-//   { start: '08-24 00:00:00', end: '08-24 00:15:00', state: 1 },
-//   { start: '08-24 00:30:00', end: '08-24 00:45:00', state: 0 },
-//   { start: '08-24 00:50:00', end: '08-24 01:15:00', state: 1 },
-//   { start: '08-24 01:20:00', end: '08-24 01:45:00', state: 1 },
-//   { start: '08-24 01:50:00', end: '08-24 02:30:00', state: 1 },
-//   { start: '08-24 02:50:00', end: '08-24 03:30:00', state: 0 },
-//   // Add more segments as needed
-// ];
 
 const data = [
   {
@@ -143,10 +136,14 @@ const transformData = (inputData) => {
 
     return {
       label: segment.state === 0 ? 'Deep' : 'Light',
-      borderColor: segment.state === 0 ? '#0000FF' : '#FFA500',
-      backgroundColor: segment.state === 0 ? '#0000FF' : '#FFA500',
+      borderColor:
+        segment.state === 0 ? 'rgba(8, 37, 103, 1)' : 'rgba(255, 165, 0, 1)', // Set a transparent color for the line
+      backgroundColor:
+        segment.state === 0 ? 'rgba(8, 37, 103, 1)' : 'rgba(255, 165, 0, 1)',
       yAxisID: 'y-doze',
       borderWidth: 10,
+      pointRadius: 0.1, // Set a radius for points to make them visible
+      pointStyle: 'rect', // You can choose 'rect', 'triangle', 'cross', etc.
       fill: false,
       data: [
         { x: segment.start, y: 0 },
@@ -160,7 +157,7 @@ const transformData = (inputData) => {
     yAxisID: 'y-count',
     type: 'bar',
     backgroundColor: 'red',
-    barThickness: 10,
+    barThickness: 5,
     data: inputData.map((segment) => ({
       x: getAverageTime(segment.start, segment.end),
       y: segment.alarm_count,
@@ -172,7 +169,7 @@ const transformData = (inputData) => {
     yAxisID: 'y-count2',
     type: 'bar',
     backgroundColor: 'green',
-    barThickness: 10,
+    barThickness: 5,
 
     data: inputData.map((segment) => ({
       x: getAverageTime(segment.start, segment.end),
@@ -225,9 +222,11 @@ const BatteryHistorianUI = () => {
 
   const max_cnt =
     createdIntervals.length > 0
-      ? Math.max(...createdIntervals.map((elem) => elem.alarm_count))
+      ? Math.max(
+          ...createdIntervals.map((elem) => elem.alarm_count),
+          ...createdIntervals.map((elem) => elem.job_count)
+        )
       : 50;
-
   const options = {
     interaction: {
       mode: 'nearest',
@@ -263,13 +262,13 @@ const BatteryHistorianUI = () => {
         id: 'y-count',
         display: true,
         min: 0,
-        max: max_cnt * 2,
+        max: roundUpToNearestTen(max_cnt * 1.5),
       },
       'y-count2': {
         id: 'y-count2',
         display: false,
         min: 0,
-        max: max_cnt * 2,
+        max: roundUpToNearestTen(max_cnt * 1.5),
       },
       'y-doze': {
         id: 'y-doze',
@@ -295,7 +294,10 @@ const BatteryHistorianUI = () => {
       tooltip: {
         callbacks: {
           title: function (tooltipItems) {
-            if (tooltipItems[0].dataset.yAxisID === 'y-count') {
+            if (
+              tooltipItems[0].dataset.yAxisID === 'y-count' ||
+              tooltipItems[0].dataset.yAxisID === 'y-count2'
+            ) {
               // console.log(tooltipItems[0]);
               return `Interval: ${
                 createdIntervals[tooltipItems[0].dataIndex].start
@@ -304,16 +306,31 @@ const BatteryHistorianUI = () => {
           },
         },
       },
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'x',
+        },
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'x',
+        },
+      },
     },
   };
 
   return (
     <div style={{ paddingLeft: '20px' }}>
-      {createdIntervals.map((elem) => (
+      {/* {createdIntervals.map((elem) => (
         <div>
-          {elem.start} ~ {elem.end}
+          {elem.start} ~ {elem.end} {elem.state === 2 ? 'off' : elem.state}
         </div>
-      ))}
+      ))} */}
       <div style={{ margin: '16px' }}>
         <input
           type='file'
