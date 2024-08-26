@@ -65,7 +65,10 @@ export function parseWakeLockLog(inputString) {
       // Stop at empty lines if necessary
       continue;
     }
-    if (lines[i].includes('DeviceIdleController:')) {
+    if (
+      lines[i].includes('DeviceIdleController:') ||
+      lines[i].includes('PowerManagerService:')
+    ) {
       results.push(line);
     }
   }
@@ -76,17 +79,17 @@ export function parseWakeLockLog(inputString) {
 export function extractIntervals(lines) {
   const intervals = [];
   let deepStartTime = null;
-  let endTime = null;
-
   let lightStartTime = null;
-  // let lightEndTime = null;
+  let screenOnStartTime = null;
+
+  let endTime = null;
 
   for (const line of lines) {
     // Extract the timestamp and message from the line
     const timestamp = line.substring(0, 14); // Extract 'MM-DD HH:MM:SS'
     const message = line.substring(15); // Rest of the line after the timestamp
 
-    console.log(timestamp, message);
+    // console.log(timestamp, message);
     // Check if the message contains '[DEEP] QUICK_DOZE_DELAY to IDLE'
     if (
       message.includes('[DEEP] QUICK_DOZE_DELAY to IDLE') ||
@@ -133,6 +136,28 @@ export function extractIntervals(lines) {
         state: 1,
       });
       lightStartTime = null; // Reset startTime after creating an interval
+    } else if (message.includes('PowerManagerService: Waking')) {
+      console.log(timestamp, message);
+      screenOnStartTime = timestamp;
+      if (endTime) {
+        intervals.push({
+          start: endTime,
+          end: screenOnStartTime,
+          state: 2,
+        });
+        endTime = null;
+      }
+    } else if (
+      message.includes('PowerManagerService: [api] goToSleep') &&
+      screenOnStartTime
+    ) {
+      endTime = timestamp;
+      intervals.push({
+        start: screenOnStartTime,
+        end: endTime,
+        state: 3,
+      });
+      screenOnStartTime = null; // Reset startTime after creating an interval
     }
   }
 

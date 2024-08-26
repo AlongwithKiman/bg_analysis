@@ -135,11 +135,20 @@ const transformData = (inputData) => {
     if (segment.end > maxTime) maxTime = segment.end;
 
     return {
-      label: segment.state === 0 ? 'Deep' : 'Light',
+      label:
+        segment.state === 0 ? 'Deep' : segment.state === 1 ? 'Light' : 'On',
       borderColor:
-        segment.state === 0 ? 'rgba(8, 37, 103, 1)' : 'rgba(255, 165, 0, 1)', // Set a transparent color for the line
+        segment.state === 0
+          ? 'rgba(8, 37, 103, 1)'
+          : segment.state === 1
+          ? 'rgba(255, 165, 0, 1)'
+          : 'lightgreen', // Set a transparent color for the line
       backgroundColor:
-        segment.state === 0 ? 'rgba(8, 37, 103, 1)' : 'rgba(255, 165, 0, 1)',
+        segment.state === 0
+          ? 'rgba(8, 37, 103, 1)'
+          : segment.state === 1
+          ? 'rgba(255, 165, 0, 1)'
+          : 'lightgreen',
       yAxisID: 'y-doze',
       borderWidth: 10,
       pointRadius: 0.1, // Set a radius for points to make them visible
@@ -326,11 +335,11 @@ const BatteryHistorianUI = () => {
 
   return (
     <div style={{ paddingLeft: '20px' }}>
-      {/* {createdIntervals.map((elem) => (
+      {createdIntervals.map((elem) => (
         <div>
           {elem.start} ~ {elem.end} {elem.state === 2 ? 'off' : elem.state}
         </div>
-      ))} */}
+      ))}
       <div style={{ margin: '16px' }}>
         <input
           type='file'
