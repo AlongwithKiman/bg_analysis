@@ -42,88 +42,6 @@ ChartJS.register(
   zoomPlugin
 );
 
-const data = [
-  {
-    start: '08-24 00:00:00',
-    end: '08-24 00:15:00',
-    state: 1,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 00:15:00',
-    end: '08-24 00:30:00',
-    state: 2,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 00:30:00',
-    end: '08-24 00:45:00',
-    state: 0,
-    count1: 8,
-    count2: 14,
-  },
-  {
-    start: '08-24 00:45:00',
-    end: '08-24 00:50:00',
-    state: 2,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 00:50:00',
-    end: '08-24 01:15:00',
-    state: 1,
-    count1: 14,
-    count2: 19,
-  },
-  {
-    start: '08-24 01:15:00',
-    end: '08-24 01:20:00',
-    state: 2,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 01:20:00',
-    end: '08-24 01:45:00',
-    state: 1,
-    count1: 16,
-    count2: 21,
-  },
-  {
-    start: '08-24 01:45:00',
-    end: '08-24 01:50:00',
-    state: 2,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 01:50:00',
-    end: '08-24 02:30:00',
-    state: 1,
-    count1: 50,
-    count2: 30,
-  },
-  {
-    start: '08-24 02:30:00',
-    end: '08-24 02:50:00',
-    state: 2,
-    count1: 15,
-    count2: 10,
-  },
-  {
-    start: '08-24 02:50:00',
-    end: '08-24 03:30:00',
-    state: 0,
-    count1: 30,
-    count2: 25,
-  },
-
-  // Add more segments as needed
-];
-
 const transformData = (inputData) => {
   let minTime = '23:59:59';
   let maxTime = '00:00:00';
@@ -136,23 +54,27 @@ const transformData = (inputData) => {
 
     return {
       label:
-        segment.state === 0 ? 'Deep' : segment.state === 1 ? 'Light' : 'On',
+        segment.state === 0
+          ? 'Deep doze'
+          : segment.state === 1
+          ? 'Light doze'
+          : 'Screen on',
       borderColor:
         segment.state === 0
-          ? 'rgba(8, 37, 103, 1)'
+          ? '#1c2566'
           : segment.state === 1
-          ? 'rgba(255, 165, 0, 1)'
-          : 'lightgreen', // Set a transparent color for the line
+          ? '#ff9800'
+          : '#469a10', // Set a transparent color for the line
       backgroundColor:
         segment.state === 0
-          ? 'rgba(8, 37, 103, 1)'
+          ? '#1c2566'
           : segment.state === 1
-          ? 'rgba(255, 165, 0, 1)'
-          : 'lightgreen',
+          ? '#ff9800'
+          : '#469a10',
       yAxisID: 'y-doze',
       borderWidth: 10,
-      pointRadius: 0.1, // Set a radius for points to make them visible
-      pointStyle: 'rect', // You can choose 'rect', 'triangle', 'cross', etc.
+      pointRadius: 0.1,
+      pointStyle: 'rect',
       fill: false,
       data: [
         { x: segment.start, y: 0 },
@@ -177,7 +99,7 @@ const transformData = (inputData) => {
     label: 'job_count',
     yAxisID: 'y-count2',
     type: 'bar',
-    backgroundColor: 'green',
+    backgroundColor: '#ffd54f',
     barThickness: 5,
 
     data: inputData.map((segment) => ({
@@ -196,6 +118,11 @@ const transformData = (inputData) => {
 const BatteryHistorianUI = () => {
   const [createdIntervals, setCreatedIntervals] = useState([]);
   const fileInputRef = useRef(null);
+
+  const [countMode, setCountMode] = useState('count'); // State to manage alarm count toggle
+  const toggleCountMode = () => {
+    setCountMode((prevMode) => (prevMode === 'count' ? 'count/min' : 'count'));
+  };
 
   const onFileInputChange = (event) => {
     const file = event.target.files[0];
@@ -311,7 +238,7 @@ const BatteryHistorianUI = () => {
               return `Interval: ${
                 createdIntervals[tooltipItems[0].dataIndex].start
               } ~ ${createdIntervals[tooltipItems[0].dataIndex].end}`;
-            } else return `${tooltipItems[0].dataset.label} doze`;
+            } else return `${tooltipItems[0].dataset.label}`;
           },
         },
       },
@@ -335,22 +262,11 @@ const BatteryHistorianUI = () => {
 
   return (
     <div style={{ paddingLeft: '20px' }}>
-      {createdIntervals.map((elem) => (
+      {/* {createdIntervals.map((elem) => (
         <div>
           {elem.start} ~ {elem.end} {elem.state === 2 ? 'off' : elem.state}
         </div>
-      ))}
-      <div style={{ margin: '16px' }}>
-        <input
-          type='file'
-          onChange={onFileInputChange}
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-        />
-        <Button variant='contained' component='span' onClick={onClickUpload}>
-          Upload File
-        </Button>
-      </div>
+      ))} */}
       <h2>Background History</h2>
       <div
         style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}
@@ -366,7 +282,7 @@ const BatteryHistorianUI = () => {
         <span>alarm_count</span>
         <div
           style={{
-            backgroundColor: 'green',
+            backgroundColor: '#ffd54f',
             width: '20px',
             height: '20px',
             marginRight: '5px',
@@ -375,7 +291,59 @@ const BatteryHistorianUI = () => {
         ></div>
         <span>job_count</span>
       </div>
+      <div
+        style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}
+      >
+        <div
+          style={{
+            backgroundColor: '#1c2566',
+            width: '20px',
+            height: '20px',
+            marginRight: '5px',
+          }}
+        ></div>
+        <span>deep doze</span>
+        <div
+          style={{
+            backgroundColor: '#ff9800',
+            width: '20px',
+            height: '20px',
+            marginRight: '5px',
+            marginLeft: '15px',
+          }}
+        ></div>
+        <span>light doze</span>
+
+        <div
+          style={{
+            backgroundColor: '#469a10',
+            width: '20px',
+            height: '20px',
+            marginRight: '5px',
+            marginLeft: '15px',
+          }}
+        ></div>
+        <span>Screen on</span>
+      </div>
       <Line data={{ datasets }} options={options} />
+      <div
+        style={{
+          margin: '16px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <input
+          type='file'
+          onChange={onFileInputChange}
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+        />
+        <Button variant='contained' component='span' onClick={onClickUpload}>
+          Upload File
+        </Button>
+      </div>
     </div>
   );
 };

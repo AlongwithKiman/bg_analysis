@@ -1,31 +1,34 @@
-// Convert yy-dd HH:MM:SS to total seconds
+/**
+ * Converts a time string in the format "yy-dd HH:MM:SS" to total seconds.
+ * @param {string} timeString - The time string to convert.
+ * @returns {number} - The total seconds represented by the time string.
+ */
 function timeStringToSeconds(timeString) {
   const [yearDay, time] = timeString.split(' ');
   const [years, days] = yearDay.split('-').map(Number);
   const [hours, minutes, seconds] = time.split(':').map(Number);
 
-  // Convert years and days to total seconds
-  const totalDays = years * 365 + days; // This does not account for leap years
-  const totalSecondsFromDays = totalDays * 86400; // 86400 seconds in a day
-
-  // Convert hours, minutes, and seconds to total seconds
+  const totalDays = years * 365 + days;
+  const totalSecondsFromDays = totalDays * 86400;
   const totalSecondsFromTime = hours * 3600 + minutes * 60 + seconds;
 
   return totalSecondsFromDays + totalSecondsFromTime;
 }
 
-// Convert total seconds to yy-dd HH:MM:SS
+/**
+ * Converts total seconds to a time string in the format "yy-dd HH:MM:SS".
+ * @param {number} totalSeconds - The total seconds to convert.
+ * @returns {string} - The formatted time string.
+ */
 function secondsToTimeString(totalSeconds) {
-  const secondsInDay = 86400; // Seconds in a day
-  const secondsInYear = 365 * secondsInDay; // Seconds in a year (assuming 365 days per year)
+  const secondsInDay = 86400;
+  const secondsInYear = 365 * secondsInDay;
 
-  // Calculate years and remaining days
   const years = Math.floor(totalSeconds / secondsInYear);
   const remainingSecondsAfterYears = totalSeconds % secondsInYear;
   const days = Math.floor(remainingSecondsAfterYears / secondsInDay);
   const remainingSecondsAfterDays = remainingSecondsAfterYears % secondsInDay;
 
-  // Calculate hours, minutes, and seconds
   const hours = Math.floor(remainingSecondsAfterDays / 3600);
   const remainingSecondsAfterHours = remainingSecondsAfterDays % 3600;
   const minutes = Math.floor(remainingSecondsAfterHours / 60);
@@ -39,7 +42,12 @@ function secondsToTimeString(totalSeconds) {
   ].join(' ');
 }
 
-// Calculate the average time between two time strings
+/**
+ * Calculates the average time between two time strings and returns it in the "yy-dd HH:MM:SS" format.
+ * @param {string} time1 - The first time string.
+ * @param {string} time2 - The second time string.
+ * @returns {string} - The average time string.
+ */
 export function getAverageTime(time1, time2) {
   const seconds1 = timeStringToSeconds(time1);
   const seconds2 = timeStringToSeconds(time2);
@@ -47,6 +55,11 @@ export function getAverageTime(time1, time2) {
   return secondsToTimeString(averageSeconds);
 }
 
+/**
+ * Parses a wake lock log and extracts relevant lines containing specific keywords.
+ * @param {string} inputString - The input log string.
+ * @returns {string[]} - An array of extracted log lines.
+ */
 export function parseWakeLockLog(inputString) {
   // Split the input string into lines
   const lines = inputString.split('\n');
@@ -76,6 +89,11 @@ export function parseWakeLockLog(inputString) {
   return results;
 }
 
+/**
+ * Extracts intervals of different device states (deep, light, screen on) from the log lines.
+ * @param {string[]} lines - The log lines to parse.
+ * @returns {object[]} - An array of intervals with start and end times, and the device state.
+ */
 export function extractIntervals(lines) {
   const intervals = [];
   let deepStartTime = null;
@@ -85,12 +103,10 @@ export function extractIntervals(lines) {
   let endTime = null;
 
   for (const line of lines) {
-    // Extract the timestamp and message from the line
     const timestamp = line.substring(0, 14); // Extract 'MM-DD HH:MM:SS'
     const message = line.substring(15); // Rest of the line after the timestamp
 
-    // console.log(timestamp, message);
-    // Check if the message contains '[DEEP] QUICK_DOZE_DELAY to IDLE'
+    // Deep doze mode starting point
     if (
       message.includes('[DEEP] QUICK_DOZE_DELAY to IDLE') ||
       message.includes('[DEEP] IDLE_MAINTENANCE to IDLE')
@@ -105,7 +121,7 @@ export function extractIntervals(lines) {
         endTime = null;
       }
     }
-    // Check if the message contains '[DEEP] IDLE to ACTIVE' and startTime is set
+    // Deep doze mode end point
     else if (
       (message.includes('[DEEP] IDLE to ACTIVE') ||
         message.includes('[DEEP] IDLE to IDLE_MAINTENANCE')) &&
@@ -117,8 +133,10 @@ export function extractIntervals(lines) {
         end: endTime,
         state: 0,
       });
-      deepStartTime = null; // Reset startTime after creating an interval
-    } else if (message.includes('[LIGHT] INACTIVE to IDLE')) {
+      deepStartTime = null;
+    }
+    // light doze mode starting point
+    else if (message.includes('[LIGHT] INACTIVE to IDLE')) {
       lightStartTime = timestamp;
       if (endTime) {
         intervals.push({
@@ -128,15 +146,19 @@ export function extractIntervals(lines) {
         });
         endTime = null;
       }
-    } else if (message.includes('[LIGHT] IDLE to') && lightStartTime) {
+    }
+    // Light doze mode end point
+    else if (message.includes('[LIGHT] IDLE to') && lightStartTime) {
       endTime = timestamp;
       intervals.push({
         start: lightStartTime,
         end: endTime,
         state: 1,
       });
-      lightStartTime = null; // Reset startTime after creating an interval
-    } else if (message.includes('PowerManagerService: Waking')) {
+      lightStartTime = null;
+    }
+    // Screen On starting point
+    else if (message.includes('PowerManagerService: Waking')) {
       console.log(timestamp, message);
       screenOnStartTime = timestamp;
       if (endTime) {
@@ -147,7 +169,9 @@ export function extractIntervals(lines) {
         });
         endTime = null;
       }
-    } else if (
+    }
+    // Screen on end point
+    else if (
       message.includes('PowerManagerService: [api] goToSleep') &&
       screenOnStartTime
     ) {
@@ -157,13 +181,19 @@ export function extractIntervals(lines) {
         end: endTime,
         state: 3,
       });
-      screenOnStartTime = null; // Reset startTime after creating an interval
+      screenOnStartTime = null;
     }
   }
 
   return intervals;
 }
 
+/**
+ * Updates the alarm count for each interval based on the provided data string.
+ * @param {object[]} intervals - The intervals to update.
+ * @param {string} dataString - The data string containing alarm information.
+ * @returns {object[]} - The updated intervals with alarm counts.
+ */
 export function updateAlarmCount(intervals, dataString) {
   // Interval 객체에 alarm_count 속성 추가
   intervals.forEach((interval) => (interval.alarm_count = 0));
@@ -174,7 +204,6 @@ export function updateAlarmCount(intervals, dataString) {
 
   const lines = dataString.split('\n');
 
-  // Initialize variables
   let startIndex = -1;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes('Wakeup Alarm history(screen off):')) {
@@ -200,10 +229,21 @@ export function updateAlarmCount(intervals, dataString) {
       break;
     }
   }
+  // for (let i = 0; i < intervals.length; i++) {
+  //   intervals[i].alarm_count =
+  //     intervals[i].alarm_count /
+  //     ((timeStringToSeconds(intervals[i].end) -
+  //       timeStringToSeconds(intervals[i].start)) /
+  //       60);
+  // }
   return intervals;
 }
 
-// (mm-dd HH:MM:SS) 형식의 문자열을 Date 객체로 변환
+/**
+ * Converts a date-time string in the format "MM-DD HH:MM:SS" to a Date object.
+ * @param {string} dateTimeStr - The date-time string to convert.
+ * @returns {Date} - The corresponding Date object.
+ */
 function parseDateTime(dateTimeStr) {
   const [date, time] = dateTimeStr.split(' ');
   const [month, day] = date.split('-').map(Number);
@@ -214,7 +254,13 @@ function parseDateTime(dateTimeStr) {
   return new Date(now.getFullYear(), month - 1, day, hour, minute, second);
 }
 
-// Job Count Function
+/**
+ * Updates the job count for each interval based on the provided data string.
+ * @param {object[]} intervals - The intervals to update.
+ * @param {string} dataString - The data string containing job information.
+ * @param {Date} baseDate - The base date to use for parsing job times.
+ * @returns {object[]} - The updated intervals with job counts.
+ */
 export function updateJobCount(intervals, dataString, baseDate) {
   console.log(intervals);
   // Interval 객체에 alarm_count 속성 추가
@@ -257,29 +303,43 @@ export function updateJobCount(intervals, dataString, baseDate) {
       }
     }
   }
-  console.log(intervals);
+  // for (let i = 0; i < intervals.length; i++) {
+  //   intervals[i].job_count =
+  //     intervals[i].job_count /
+  //     ((timeStringToSeconds(intervals[i].end) -
+  //       timeStringToSeconds(intervals[i].start)) /
+  //       60);
+  // }
 
   return intervals;
 }
 
+/**
+ * Extracts the start date of the log from the input string.
+ * @param {string} inputString - The input log string.
+ * @returns {Date|null} - The extracted start date as a Date object, or null if not found.
+ */
 export function getLogStartDate(inputString) {
-  // 정규 표현식을 사용하여 날짜와 시간을 추출합니다.
   const regex =
     /Last battery usage start=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d{3}/;
   const match = inputString.match(regex);
 
   if (match && match[1]) {
-    // 추출된 날짜 문자열을 Date 객체로 변환합니다.
     const date = new Date(match[1]);
     date.setHours(date.getHours() + 9); // fix UTC+9 issue
     console.log('return date:', date);
     return date;
   } else {
-    // 일치하는 부분이 없으면 null을 반환합니다.
     return null;
   }
 }
 
+/**
+ * Converts a time string in the format "Xd Xh Xm Xs Xms" to a Date object relative to a base date.
+ * @param {string} timeStr - The time string to convert.
+ * @param {Date} baseDate - The base date to which the time string is relative.
+ * @returns {Date} - The calculated Date object.
+ */
 function stringToDate(timeStr, baseDate) {
   // console.log('Start:', baseDate);
   const timePattern = /^(\d+d)?(\d+h)?(\d+m)?(\d+s)?(\d+ms)?/;
@@ -305,6 +365,11 @@ function stringToDate(timeStr, baseDate) {
   return date;
 }
 
+/**
+ * Rounds a number up to the nearest power of ten.
+ * @param {number} num - The number to round up.
+ * @returns {number} - The rounded number.
+ */
 export function roundUpToNearestTen(num) {
   const factor = Math.pow(10, Math.floor(Math.log10(num)));
   return Math.ceil(num / factor) * factor;
