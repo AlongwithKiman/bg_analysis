@@ -3,18 +3,19 @@ import { Line } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import {
   Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Filler,
-  Legend,
-  TimeScale,
-  TimeSeriesScale,
-  BarElement, // Import BarElement for the bar chart
+  // CategoryScale,
+  // LinearScale,
+  // PointElement,
+  // LineElement,
+  // Title,
+  // Tooltip,
+  // Filler,
+  // Legend,
+  // TimeScale,
+  // TimeSeriesScale,
+  // BarElement, // Import BarElement for the bar chart
 } from 'chart.js';
+import Chart from 'chart.js/auto';
 import Button from '@mui/material/Button';
 import 'chartjs-adapter-date-fns';
 import {
@@ -27,20 +28,7 @@ import {
   updateJobCount,
 } from './utils';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement, // Register BarElement for the bar chart
-  Title,
-  Tooltip,
-  Filler,
-  Legend,
-  TimeScale,
-  TimeSeriesScale,
-  zoomPlugin
-);
+ChartJS.register(zoomPlugin);
 
 const transformData = (inputData) => {
   let minTime = '23:59:59';
